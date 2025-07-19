@@ -1,0 +1,110 @@
+[project]
+name = "langchain-openailike-llms-adapters"
+version = "0.1.0"
+description = "A utils to connect to all models compatible with the OpenAI style"
+readme = "README.md"
+authors = [{ name = "tiebingice", email = "tiebingice123@outlook.com" }]
+requires-python = ">=3.11"
+dependencies = [
+    "dotenv>=0.9.9",
+    "langchain>=0.3.26",
+    "langchain-openai>=0.3.28",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["notebook>=7.4.4"]
+test = [
+    "pytest<8.0.0,>=7.4.3",
+    "pytest-asyncio<1.0.0,>=0.23.2",
+    "pytest-socket<1.0.0,>=0.7.0",
+    "pytest-watcher<1.0.0,>=0.3.4",
+    "langchain-tests",
+    "langchain-openai",
+    "pytest-timeout<3.0.0,>=2.3.1",
+    "langchain-test>=0.1.1",
+]
+codespell = ["codespell<3.0.0,>=2.2.6"]
+test_integration = []
+lint = ["ruff<0.13,>=0.12.2"]
+typing = ["mypy<2.0,>=1.10"]
+
+
+[tool.mypy]
+disallow_untyped_defs = "True"
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "A",     # flake8-builtins
+    "ASYNC", # flake8-async
+    "C4",    # flake8-comprehensions
+    "COM",   # flake8-commas
+    "D",     # pydocstyle
+    "DOC",   # pydoclint
+    "E",     # pycodestyle error
+    "EM",    # flake8-errmsg
+    "F",     # pyflakes
+    "FA",    # flake8-future-annotations
+    "FBT",   # flake8-boolean-trap
+    "FLY",   # flake8-flynt
+    "I",     # isort
+    "ICN",   # flake8-import-conventions
+    "INT",   # flake8-gettext
+    "ISC",   # isort-comprehensions
+    "PGH",   # pygrep-hooks
+    "PERF",  # flake8-perf
+    "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
+    "RET",   # flake8-return
+    "RSE",   # flake8-rst-docstrings
+    "RUF",   # ruff
+    "S",     # flake8-bandit
+    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "SIM",   # flake8-simplify
+    "T10",   # flake8-debugger
+    "T20",   # flake8-print
+    "TID",   # flake8-tidy-imports
+    "UP",    # pyupgrade
+    "W",     # pycodestyle warning
+    "YTT",   # flake8-2020
+]
+ignore = [
+    "D100",   # Missing docstring in public module
+    "D101",   # Missing docstring in public class
+    "D102",   # Missing docstring in public method
+    "D103",   # Missing docstring in public function
+    "D104",   # Missing docstring in public package
+    "D105",   # Missing docstring in magic method
+    "D107",   # Missing docstring in __init__
+    "UP007",  # pyupgrade: non-pep604-annotation-union
+    "UP045",  # pyupgrade: non-pep604-annotation-optional
+    "UP035",  # pyupgrade: non-pep604-annotation-union
+    "UP006",  # pyupgrade: non-pep604-annotation-union
+    "EM101",  # flake8-errmsg: E102: IndentationError: unexpected indent,
+    "PGH003", # pygrep-hooks: PGH003: Use type: ignore for type checking errors
+]
+unfixable = ["B028"] # People should intentionally tune the stacklevel
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --durations=5"
+markers = [
+    "compile: mark placeholder test used to compile integration tests without running them",
+]
+asyncio_mode = "auto"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # Tests need assertions
+    "S311",   # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "SLF001", # Private member access
+]
