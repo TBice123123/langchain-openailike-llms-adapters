@@ -1,4 +1,3 @@
-from gc import enable
 from json import JSONDecodeError
 from operator import itemgetter
 from typing import (

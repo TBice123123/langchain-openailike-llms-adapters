@@ -41,15 +41,6 @@ def get_openai_like_llm_instance(
     if thinking_budget is not None:
         extra_kwargs.update({"thinking_budget": thinking_budget})
 
-    _streaming = False
-
-    if provider == "dashscope" and (
-        model.startswith("qwen3")
-        or model.startswith("qwq")
-        or model.startswith("qvq")
-        or enable_thinking
-    ):
-        _streaming = True
 
     chat_model = _get_openai_like_chat_model(provider)
 
