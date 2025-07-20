@@ -3,12 +3,6 @@
     <em>一个库接入所有兼容OpenAI风格的模型</em>
 </p>
 
-<div style="display: flex; align-items: center;">
-  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px;">pypi package</span>
-  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: -4px;">v0.1.1</span>
-  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px;">python</span>
-  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: -4px;">3.11 | 3.12 | 3.13</span>
-</div>
 
 ## 编写动机
 随着 OpenAI 风格 API 成为行业标准，越来越多的大模型厂商提供了兼容的接口。然而，当前的接入方式存在分散且低效的问题。例如接入 DeepSeek 需要安装 `langchain-deepseek`，而接入 Qwen3 则需要依赖 `langchain-qwq`，这种为每个模型单独引入依赖包的方式不仅增加了开发复杂度，也降低了灵活性。更极端的例子是 Kimi-K2 等模型，甚至没有对应的封装包，只能通过 `langchain-openai` 接入。

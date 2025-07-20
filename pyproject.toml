@@ -1,6 +1,6 @@
 [project]
 name = "langchain-openailike-llms-adapters"
-version = "0.1.1"
+version = "0.1.2"
 description = "A utils to connect to all models compatible with the OpenAI style"
 readme = "README.md"
 authors = [{ name = "tiebingice", email = "tiebingice123@outlook.com" }]

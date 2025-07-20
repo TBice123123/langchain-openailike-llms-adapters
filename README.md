@@ -6,13 +6,6 @@
 
 <span style="color:#4CAF50; font-weight:bold; margin-right: 8px;">[中文文档](README_cn.md)</span>
 
-<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
-  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">pypi package</span>
-  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">v0.1.1</span>
-  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">python</span>
-  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">3.11 | 3.12 | 3.13</span>
-</div>
-
 
 
 
