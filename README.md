@@ -90,7 +90,6 @@ print(model.invoke("Hello"))
 > ✅ Please set `CUSTOM_API_BASE` to the OpenRouter API address: `https://openrouter.ai/api/v1`.
 
 For locally deployed open-source models, you can also integrate them using the above custom method or by replacing the URL based on existing providers.
-```
 
 
 
