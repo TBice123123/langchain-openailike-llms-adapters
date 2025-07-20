@@ -1,10 +1,10 @@
-<h1 align="center"> 🦜️🔗 LangChain-OpenAILike-adapters </h1>
+<h1 align="center"> 🦜️🔗 LangChain-OpenAILike-LLMs-adapters </h1>
 <p align="center">
     <em>A utils to connect to all models compatible with the OpenAI style</em>
 </p>
 
 
-<span style="color:#4CAF50; font-weight:bold; margin-right: 8px;">[中文文档](README_cn.md)</span>
+<span style="color:#4CAF50; font-weight:bold; margin-right: 8px;">[中文文档](https://github.com/TBice123123/langchain-openailike-llms-adapters/blob/main/README_cn.md)</span>
 
 
 

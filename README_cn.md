@@ -1,4 +1,4 @@
-<h1 align="center"> 🦜️🔗 LangChain-OpenAILike-adapters </h1>
+<h1 align="center"> 🦜️🔗 LangChain-OpenAILike-LLMs-adapters </h1>
 <p align="center">
     <em>一个库接入所有兼容OpenAI风格的模型</em>
 </p>
