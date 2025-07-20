@@ -7,10 +7,10 @@ from typing import (
     Type,
 )
 
-from langchain_openai.chat_models.base import BaseChatOpenAI
 
 from .provider import provider_list, _get_provider_with_model
 from .utils import _get_openai_like_chat_model
+from .utils import ChatCustomOpenAILikeModel
 
 
 def get_openai_like_llm_instance(
@@ -20,7 +20,7 @@ def get_openai_like_llm_instance(
     enable_thinking: Optional[bool] = None,
     thinking_budget: Optional[int] = None,
     **extra_kwargs: Any,
-) -> BaseChatOpenAI:
+) -> ChatCustomOpenAILikeModel:
     """
     Get an instance of a chat model that is compatible with the OpenAI API.
 
@@ -41,12 +41,13 @@ def get_openai_like_llm_instance(
     if thinking_budget is not None:
         extra_kwargs.update({"thinking_budget": thinking_budget})
 
-
     chat_model = _get_openai_like_chat_model(provider)
 
     return chat_model(model=model, **extra_kwargs)
 
 
 @cache
-def get_openai_like_llm_chatmodel(provider: provider_list) -> Type[BaseChatOpenAI]:
+def get_openai_like_llm_chatmodel(
+    provider: provider_list,
+) -> Type[ChatCustomOpenAILikeModel]:
     return _get_openai_like_chat_model(provider)
