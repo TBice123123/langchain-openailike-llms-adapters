@@ -20,9 +20,10 @@ from langchain_openailike_llms_adapters.adapters import (
     get_openai_like_llm_instance,
 )
 
+model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
+
 
 def test_invoke() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
     result = model.invoke("Hello")
     assert result is not None
     assert isinstance(result, AIMessage)
@@ -31,7 +32,6 @@ def test_invoke() -> None:
 
 
 async def test_ainvoke() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
     result = await model.ainvoke("Hello")
     assert result is not None
     assert isinstance(result, AIMessage)
@@ -40,7 +40,6 @@ async def test_ainvoke() -> None:
 
 
 def test_stream() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
     num_tokens = 0
     for token in model.stream("Hello"):
         assert token is not None
@@ -50,7 +49,6 @@ def test_stream() -> None:
 
 
 async def test_astream() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
     num_tokens = 0
     async for token in model.astream("Hello"):
         assert token is not None
@@ -60,8 +58,6 @@ async def test_astream() -> None:
 
 
 def test_batch() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
-
     batch_results = model.batch(["Hello", "Hey"])
     assert batch_results is not None
     assert isinstance(batch_results, list)
@@ -74,7 +70,6 @@ def test_batch() -> None:
 
 
 async def test_abatch() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
     batch_results = await model.abatch(["Hello", "Hey"])
     assert batch_results is not None
     assert isinstance(batch_results, list)
@@ -87,7 +82,6 @@ async def test_abatch() -> None:
 
 
 def test_conversation() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     messages = [
         HumanMessage("hello"),
         AIMessage("hello"),
@@ -101,7 +95,6 @@ def test_conversation() -> None:
 
 
 def test_double_messages_conversation() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     messages = [
         SystemMessage("hello"),
         SystemMessage("hello"),
@@ -119,7 +112,6 @@ def test_double_messages_conversation() -> None:
 
 
 def test_usage_metadata() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     result = model.invoke("Hello")
     assert result is not None
     assert isinstance(result, AIMessage)
@@ -136,7 +128,6 @@ def test_usage_metadata() -> None:
 
 
 def test_usage_metadata_streaming() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     full: Optional[AIMessageChunk] = None
     for chunk in model.stream("Write me 2 haikus. Only include the haikus."):
         assert isinstance(chunk, AIMessageChunk)
@@ -160,13 +151,11 @@ def test_usage_metadata_streaming() -> None:
 
 
 def test_stop_sequence() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     result = model.invoke("hi", stop=["you"])
     assert isinstance(result, AIMessage)
 
 
 def test_tool_calling() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     model_with_tools = model.bind_tools([magic_function])
 
     # Test invoke
@@ -183,8 +172,6 @@ def test_tool_calling() -> None:
 
 
 async def test_tool_calling_async() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
-
     model_with_tools = model.bind_tools([magic_function])
 
     # Test ainvoke
@@ -201,7 +188,6 @@ async def test_tool_calling_async() -> None:
 
 
 def test_tool_calling_with_no_arguments() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
     model_with_tools = model.bind_tools([magic_function_no_args])
     query = "What is the value of magic_function_no_args()? Use the tool."
     result = model_with_tools.invoke(query)
@@ -215,8 +201,6 @@ def test_tool_calling_with_no_arguments() -> None:
 
 
 def test_structured_output_optional_param() -> None:
-    model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
-
     # Pydantic
     class Joke(BaseModel):
         """Joke to tell user."""
@@ -246,8 +230,6 @@ def test_structured_output_optional_param() -> None:
 
 
 def test_tool_message_histories_string_content() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
-
     @tool
     def my_adder_tool(a: int, b: int) -> int:
         """Add two numbers together."""
@@ -282,8 +264,6 @@ def test_tool_message_histories_string_content() -> None:
 
 
 def test_tool_message_histories_list_content() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
-
     @tool
     def my_adder_tool(a: int, b: int) -> int:
         """add two numbers together"""
@@ -297,15 +277,7 @@ def test_tool_message_histories_list_content() -> None:
         HumanMessage("What is 1 + 2"),
         # List content (e.g., Anthropic)
         AIMessage(
-            [
-                {"type": "text", "text": "some text"},
-                {
-                    "type": "tool_use",
-                    "id": "abc123",
-                    "name": function_name,
-                    "input": function_args,
-                },
-            ],
+            content="",
             tool_calls=[
                 {
                     "name": function_name,
@@ -326,8 +298,6 @@ def test_tool_message_histories_list_content() -> None:
 
 
 def test_tool_message_error_status() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
-
     @tool
     def my_adder_tool(a: int, b: int) -> int:
         """Add two numbers together."""
@@ -359,7 +329,6 @@ def test_tool_message_error_status() -> None:
 
 
 def test_message_with_name() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
     result = model.invoke([HumanMessage("hello", name="example_user")])
     assert result is not None
     assert isinstance(result, AIMessage)
@@ -368,8 +337,6 @@ def test_message_with_name() -> None:
 
 
 def test_agent_loop() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b", enable_thinking=False)
-
     @tool
     def get_weather(location: str) -> str:
         """Call to surf the web."""

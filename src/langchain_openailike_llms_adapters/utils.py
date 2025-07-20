@@ -1,3 +1,4 @@
+from gc import enable
 from json import JSONDecodeError
 from operator import itemgetter
 from typing import (
@@ -27,9 +28,20 @@ from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.utils import from_env, secret_from_env
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai.chat_models.base import BaseChatOpenAI, _is_pydantic_class
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    model_validator,
+    create_model,
+)
+
+from langchain_openailike_llms_adapters.provider import providers
 
 from .tool_choice_list import support_models
+from .provider import _get_provider_with_model
 
 _BM = TypeVar("_BM", bound=BaseModel)
 _DictOrPydanticClass = Union[dict[str, Any], type[_BM], type]
@@ -42,330 +54,361 @@ def _check_support_tool_choice(model: str):
     return False
 
 
-def _get_openai_like_chat_model(
-    chat_model_name: str,
-    api_key_name: str,
-    api_base_name: str,
-    default_api: str,
-    provider: str,
-    enable_streaming: bool = False,
-) -> Type[BaseChatOpenAI]:
-    class ChatOpenAILikeModel(BaseChatOpenAI):
-        model_name: str = Field(alias="model", default="")
+class ChatCustomOpenAILikeModel(BaseChatOpenAI):
+    model_name: str = Field(alias="model", default="")
 
-        api_key: Optional[SecretStr] = Field(
-            default_factory=secret_from_env(api_key_name, default=None),
-        )
-        api_base: str = Field(
-            default_factory=from_env(api_base_name, default=default_api),
-        )
+    api_key: Optional[SecretStr] = Field(
+        default_factory=secret_from_env("CUSTOM_API_KEY", default=None),
+    )
+    api_base: str = Field(
+        default_factory=from_env("CUSTOM_API_BASE", default=""),
+    )
 
-        model_config = ConfigDict(populate_by_name=True)
-        enable_thinking: Optional[bool] = None
-        thinking_budget: Optional[int] = None
+    model_config = ConfigDict(populate_by_name=True)
+    enable_thinking: Optional[bool] = None
+    thinking_budget: Optional[int] = None
 
-        streaming: bool = enable_streaming
+    _api_name: str = PrivateAttr(default="CUSTOM")
 
-        @property
-        def _llm_type(self) -> str:
-            return f"chat-{provider}"
+    @property
+    def _llm_type(self) -> str:
+        return f"chat-{self._api_name.lower()}-model"
 
-        @property
-        def lc_secrets(self) -> Dict[str, str]:
-            """A map of constructor argument names to secret ids."""
-            return {"api_key": api_key_name}
+    @property
+    def lc_secrets(self) -> Dict[str, str]:
+        """A map of constructor argument names to secret ids."""
+        key_name = self._api_name
+        return {"api_key": f"{key_name}_API_KEY"}
 
-        @model_validator(mode="after")
-        def validate_environment(self) -> Self:
-            """Validate environment variables."""
-            if not self.api_base:
-                raise ValueError(
-                    """Custom models must set api_base or set the CUSTOM_API_BASE environment variable""",
-                )
+    @model_validator(mode="before")
+    @classmethod
+    def validate_temperature(cls, values: dict[str, Any]) -> Any:
+        model = values.get("model_name") or values.get("model") or ""
+        provider = _get_provider_with_model(model)
 
-            if not (self.api_key and self.api_key.get_secret_value()):
-                raise ValueError(
-                    f"If you api_key is not set, {api_key_name} environment variable is required",  # noqa: E501
-                )
+        if provider == "dashscope" and (
+            (model.startswith("qwen3") and values.get("enable_thinking", True))
+            or model.startswith("qwq")
+            or model.startswith("qvq")
+            or values.get("enable_thinking")
+        ):
+            values["streaming"] = True
 
-            client_params: dict = {
-                k: v
-                for k, v in {
-                    "api_key": self.api_key.get_secret_value()
-                    if self.api_key
-                    else None,
-                    "base_url": self.api_base,
-                    "timeout": self.request_timeout,
-                    "max_retries": self.max_retries,
-                    "default_headers": self.default_headers,
-                    "default_query": self.default_query,
-                }.items()
-                if v is not None
-            }
+        return values
 
-            if not (self.client or None):
-                sync_specific: dict = {"http_client": self.http_client}
-                self.root_client = openai.OpenAI(**client_params, **sync_specific)
-                self.client = self.root_client.chat.completions
-            if not (self.async_client or None):
-                async_specific: dict = {"http_client": self.http_async_client}
-                self.root_async_client = openai.AsyncOpenAI(
-                    **client_params,
-                    **async_specific,
-                )
-                self.async_client = self.root_async_client.chat.completions
-            return self
+    @model_validator(mode="after")
+    def validate_environment(self) -> Self:
+        """Validate environment variables."""
+        if not self.api_base:
+            raise ValueError(
+                """Custom models must set api_base or set the CUSTOM_API_BASE environment variable""",
+            )
 
-        def _create_chat_result(
-            self,
-            response: Union[dict, openai.BaseModel],
-            generation_info: Optional[Dict] = None,
-        ) -> ChatResult:
-            rtn = super()._create_chat_result(response, generation_info)
+        key_name = f"{self._api_name.upper()}_API_KEY"
 
-            if not isinstance(response, openai.BaseModel):
-                return rtn
+        if not (self.api_key and self.api_key.get_secret_value()):
+            raise ValueError(
+                f"If you api_key is not set,  {key_name} environment variable is required",  # noqa: E501
+            )
 
-            if hasattr(response.choices[0].message, "reasoning_content"):  # type:ignore
-                rtn.generations[0].message.additional_kwargs["reasoning_content"] = (
-                    response.choices[0].message.reasoning_content  # type:ignore
-                )
-            # Handle use via OpenRouter
-            elif hasattr(response.choices[0].message, "model_extra"):  # type:ignore
-                model_extra = response.choices[0].message.model_extra  # type:ignore
-                if isinstance(model_extra, dict) and (
-                    reasoning := model_extra.get("reasoning")
-                ):
-                    rtn.generations[0].message.additional_kwargs[
-                        "reasoning_content"
-                    ] = reasoning
+        client_params: dict = {
+            k: v
+            for k, v in {
+                "api_key": self.api_key.get_secret_value() if self.api_key else None,
+                "base_url": self.api_base,
+                "timeout": self.request_timeout,
+                "max_retries": self.max_retries,
+                "default_headers": self.default_headers,
+                "default_query": self.default_query,
+            }.items()
+            if v is not None
+        }
 
+        if not (self.client or None):
+            sync_specific: dict = {"http_client": self.http_client}
+            self.root_client = openai.OpenAI(**client_params, **sync_specific)
+            self.client = self.root_client.chat.completions
+        if not (self.async_client or None):
+            async_specific: dict = {"http_client": self.http_async_client}
+            self.root_async_client = openai.AsyncOpenAI(
+                **client_params,
+                **async_specific,
+            )
+            self.async_client = self.root_async_client.chat.completions
+        return self
+
+    def _create_chat_result(
+        self,
+        response: Union[dict, openai.BaseModel],
+        generation_info: Optional[Dict] = None,
+    ) -> ChatResult:
+        rtn = super()._create_chat_result(response, generation_info)
+
+        if not isinstance(response, openai.BaseModel):
             return rtn
 
-        @property
-        def _default_params(self) -> Dict[str, Any]:
-            if self.enable_thinking is not None:
-                if self.extra_body is None:
-                    self.extra_body = {"enable_thinking": self.enable_thinking}
-                else:
-                    self.extra_body = {
-                        **self.extra_body,
-                        "enable_thinking": self.enable_thinking,
-                    }
-
-            if self.thinking_budget is not None:
-                if self.extra_body is None:
-                    self.extra_body = {"thinking_budget": self.thinking_budget}
-                else:
-                    self.extra_body = {
-                        **self.extra_body,
-                        "thinking_budget": self.thinking_budget,
-                    }
-
-            return super()._default_params
-
-        def _convert_chunk_to_generation_chunk(
-            self,
-            chunk: dict,
-            default_chunk_class: Type,
-            base_generation_info: Optional[Dict],
-        ) -> Optional[ChatGenerationChunk]:
-            generation_chunk = super()._convert_chunk_to_generation_chunk(
-                chunk,
-                default_chunk_class,
-                base_generation_info,
+        if hasattr(response.choices[0].message, "reasoning_content"):  # type:ignore
+            rtn.generations[0].message.additional_kwargs["reasoning_content"] = (
+                response.choices[0].message.reasoning_content  # type:ignore
             )
-            if (choices := chunk.get("choices")) and generation_chunk:
-                top = choices[0]
-                if isinstance(generation_chunk.message, AIMessageChunk):
-                    if reasoning_content := top.get("delta", {}).get(
-                        "reasoning_content"
-                    ):
-                        generation_chunk.message.additional_kwargs[
-                            "reasoning_content"
-                        ] = reasoning_content
-                    # Handle use via OpenRouter
-                    elif reasoning := top.get("delta", {}).get("reasoning"):
-                        generation_chunk.message.additional_kwargs[
-                            "reasoning_content"
-                        ] = reasoning
-
-            return generation_chunk
-
-        def _stream(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> Iterator[ChatGenerationChunk]:
-            kwargs["stream_options"] = {"include_usage": True}
-            try:
-                yield from super()._stream(
-                    messages,
-                    stop=stop,
-                    run_manager=run_manager,
-                    **kwargs,
+        # Handle use via OpenRouter
+        elif hasattr(response.choices[0].message, "model_extra"):  # type:ignore
+            model_extra = response.choices[0].message.model_extra  # type:ignore
+            if isinstance(model_extra, dict) and (
+                reasoning := model_extra.get("reasoning")
+            ):
+                rtn.generations[0].message.additional_kwargs["reasoning_content"] = (
+                    reasoning
                 )
-            except JSONDecodeError as e:
-                raise JSONDecodeError(
-                    f"Your {provider} API returned an invalid response. "
-                    "Please check the API status and try again.",
-                    e.doc,
-                    e.pos,
-                ) from e
 
-        async def _astream(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> AsyncIterator[ChatGenerationChunk]:
-            kwargs["stream_options"] = {"include_usage": True}
-            try:
-                async for chunk in super()._astream(
-                    messages,
-                    stop=stop,
-                    run_manager=run_manager,
-                    **kwargs,
-                ):
-                    yield chunk
-            except JSONDecodeError as e:
-                raise JSONDecodeError(
-                    f"Your {provider} API  returned an invalid response. "
-                    "Please check the API status and try again.",
-                    e.doc,
-                    e.pos,
-                ) from e
+        return rtn
 
-        def _generate(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> ChatResult:
-            try:
-                return super()._generate(
-                    messages,
-                    stop=stop,
-                    run_manager=run_manager,
-                    **kwargs,
+    @property
+    def _default_params(self) -> Dict[str, Any]:
+        if self.enable_thinking is not None:
+            if self.extra_body is None:
+                self.extra_body = {"enable_thinking": self.enable_thinking}
+            else:
+                self.extra_body = {
+                    **self.extra_body,
+                    "enable_thinking": self.enable_thinking,
+                }
+
+        if self.thinking_budget is not None:
+            if self.extra_body is None:
+                self.extra_body = {"thinking_budget": self.thinking_budget}
+            else:
+                self.extra_body = {
+                    **self.extra_body,
+                    "thinking_budget": self.thinking_budget,
+                }
+
+        return super()._default_params
+
+    def _convert_chunk_to_generation_chunk(
+        self,
+        chunk: dict,
+        default_chunk_class: Type,
+        base_generation_info: Optional[Dict],
+    ) -> Optional[ChatGenerationChunk]:
+        generation_chunk = super()._convert_chunk_to_generation_chunk(
+            chunk,
+            default_chunk_class,
+            base_generation_info,
+        )
+        if (choices := chunk.get("choices")) and generation_chunk:
+            top = choices[0]
+            if isinstance(generation_chunk.message, AIMessageChunk):
+                if reasoning_content := top.get("delta", {}).get("reasoning_content"):
+                    generation_chunk.message.additional_kwargs["reasoning_content"] = (
+                        reasoning_content
+                    )
+                # Handle use via OpenRouter
+                elif reasoning := top.get("delta", {}).get("reasoning"):
+                    generation_chunk.message.additional_kwargs["reasoning_content"] = (
+                        reasoning
+                    )
+
+        return generation_chunk
+
+    def _stream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        kwargs["stream_options"] = {"include_usage": True}
+        try:
+            yield from super()._stream(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            )
+        except JSONDecodeError as e:
+            raise JSONDecodeError(
+                f"Your {self._api_name} API returned an invalid response. "
+                "Please check the API status and try again.",
+                e.doc,
+                e.pos,
+            ) from e
+
+    async def _astream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        kwargs["stream_options"] = {"include_usage": True}
+        try:
+            async for chunk in super()._astream(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            ):
+                yield chunk
+        except JSONDecodeError as e:
+            raise JSONDecodeError(
+                f"Your {self._api_name} API  returned an invalid response. "
+                "Please check the API status and try again.",
+                e.doc,
+                e.pos,
+            ) from e
+
+    def _generate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        try:
+            return super()._generate(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            )
+        except JSONDecodeError as e:
+            raise JSONDecodeError(
+                f"Your {self._api_name} API returned an invalid response. "
+                "Please check the API status and try again.",
+                e.doc,
+                e.pos,
+            ) from e
+
+    async def _agenerate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        try:
+            return await super()._agenerate(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            )
+        except JSONDecodeError as e:
+            raise JSONDecodeError(
+                f"Your {self._api_name} API returned an invalid response. "
+                "Please check the API status and try again.",
+                e.doc,
+                e.pos,
+            ) from e
+
+    def with_structured_output(
+        self,
+        schema: Optional[_DictOrPydanticClass] = None,
+        *,
+        method: Literal[
+            "function_calling",
+            "json_mode",
+            "json_schema",
+        ] = "function_calling",
+        include_raw: bool = False,
+        strict: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> Runnable[LanguageModelInput, _DictOrPydantic]:
+        if method != "function_calling":
+            method = "function_calling"
+
+        if kwargs:
+            raise ValueError(f"Received unsupported arguments {kwargs}")  # noqa: EM102
+
+        is_pydantic_schema = _is_pydantic_class(schema)
+
+        if method == "function_calling":
+            if schema is None:
+                raise ValueError(
+                    "schema must be specified when method is not 'json_mode'. "
+                    "Received None.",
                 )
-            except JSONDecodeError as e:
-                raise JSONDecodeError(
-                    f"Your {provider} API returned an invalid response. "
-                    "Please check the API status and try again.",
-                    e.doc,
-                    e.pos,
-                ) from e
 
-        async def _agenerate(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> ChatResult:
-            try:
-                return await super()._agenerate(
-                    messages,
-                    stop=stop,
-                    run_manager=run_manager,
-                    **kwargs,
+            tool_name = convert_to_openai_tool(schema)["function"]["name"]
+
+            tool_choice = _check_support_tool_choice(self.model_name)
+
+            if tool_choice and "qwen" in self.model_name:
+                self.enable_thinking = False
+
+            if tool_choice:
+                bind_kwargs = self._filter_disabled_params(
+                    parallel_tool_calls=False,
+                    tool_choice=tool_name,
+                    strict=strict,
+                    ls_structured_output_format={
+                        "kwargs": {"method": method, "strict": strict},
+                        "schema": schema,
+                    },
                 )
-            except JSONDecodeError as e:
-                raise JSONDecodeError(
-                    f"Your {provider} API returned an invalid response. "
-                    "Please check the API status and try again.",
-                    e.doc,
-                    e.pos,
-                ) from e
+            else:
+                bind_kwargs = self._filter_disabled_params(
+                    parallel_tool_calls=False,
+                    strict=strict,
+                    ls_structured_output_format={
+                        "kwargs": {"method": method, "strict": strict},
+                        "schema": schema,
+                    },
+                )
 
-        def with_structured_output(
-            self,
-            schema: Optional[_DictOrPydanticClass] = None,
-            *,
-            method: Literal[
-                "function_calling",
-                "json_mode",
-                "json_schema",
-            ] = "function_calling",
-            include_raw: bool = False,
-            strict: Optional[bool] = None,
-            **kwargs: Any,
-        ) -> Runnable[LanguageModelInput, _DictOrPydantic]:
-            if method != "function_calling":
-                method = "function_calling"
+            llm = self.bind_tools([schema], **bind_kwargs)
+            if is_pydantic_schema:
+                output_parser: Runnable = PydanticToolsParser(
+                    tools=[schema],  # type: ignore[list-item]
+                    first_tool_only=True,  # type: ignore[list-item]
+                )
+            else:
+                output_parser = JsonOutputKeyToolsParser(
+                    key_name=tool_name,
+                    first_tool_only=True,
+                )
 
-            if kwargs:
-                raise ValueError(f"Received unsupported arguments {kwargs}")  # noqa: EM102
+            if include_raw:
+                parser_assign = RunnablePassthrough.assign(
+                    parsed=itemgetter("raw") | output_parser,
+                    parsing_error=lambda _: None,
+                )
+                parser_none = RunnablePassthrough.assign(parsed=lambda _: None)
+                parser_with_fallback = parser_assign.with_fallbacks(
+                    [parser_none],
+                    exception_key="parsing_error",
+                )
+                chain = RunnableMap(raw=llm) | parser_with_fallback
+            else:
+                chain = llm | output_parser
 
-            is_pydantic_schema = _is_pydantic_class(schema)
+        return chain
 
-            if method == "function_calling":
-                if schema is None:
-                    raise ValueError(
-                        "schema must be specified when method is not 'json_mode'. "
-                        "Received None.",
-                    )
 
-                tool_name = convert_to_openai_tool(schema)["function"]["name"]
+def _get_openai_like_chat_model(provider: str) -> Type[ChatCustomOpenAILikeModel]:
+    if provider == "custom":
+        return ChatCustomOpenAILikeModel
 
-                tool_choice = _check_support_tool_choice(self.model_name)
+    API_NAME = providers[provider]["api_id"]
 
-                if tool_choice and "qwen" in self.model_name:
-                    self.enable_thinking = False
+    API_KEY_NAME = f"{API_NAME.upper()}_API_KEY"
+    API_BASE_NAME = f"{API_NAME.upper()}_API_BASE"
 
-                if tool_choice:
-                    bind_kwargs = self._filter_disabled_params(
-                        parallel_tool_calls=False,
-                        tool_choice=tool_name,
-                        strict=strict,
-                        ls_structured_output_format={
-                            "kwargs": {"method": method, "strict": strict},
-                            "schema": schema,
-                        },
-                    )
-                else:
-                    bind_kwargs = self._filter_disabled_params(
-                        parallel_tool_calls=False,
-                        strict=strict,
-                        ls_structured_output_format={
-                            "kwargs": {"method": method, "strict": strict},
-                            "schema": schema,
-                        },
-                    )
+    DEFAULT_API_BASE = providers[provider]["default_url"]
 
-                llm = self.bind_tools([schema], **bind_kwargs)
-                if is_pydantic_schema:
-                    output_parser: Runnable = PydanticToolsParser(
-                        tools=[schema],  # type: ignore[list-item]
-                        first_tool_only=True,  # type: ignore[list-item]
-                    )
-                else:
-                    output_parser = JsonOutputKeyToolsParser(
-                        key_name=tool_name,
-                        first_tool_only=True,
-                    )
+    chat_model_name = f"Chat{API_NAME.title()}Model"
 
-                if include_raw:
-                    parser_assign = RunnablePassthrough.assign(
-                        parsed=itemgetter("raw") | output_parser,
-                        parsing_error=lambda _: None,
-                    )
-                    parser_none = RunnablePassthrough.assign(parsed=lambda _: None)
-                    parser_with_fallback = parser_assign.with_fallbacks(
-                        [parser_none],
-                        exception_key="parsing_error",
-                    )
-                    chain = RunnableMap(raw=llm) | parser_with_fallback
-                else:
-                    chain = llm | output_parser
-
-            return chain
-
-    ChatOpenAILikeModel.__name__ = chat_model_name
-
-    return ChatOpenAILikeModel
+    return create_model(
+        chat_model_name,
+        api_key=(
+            Optional[SecretStr],
+            Field(default_factory=secret_from_env(API_KEY_NAME, default=None)),
+        ),
+        api_base=(
+            str,
+            Field(default_factory=from_env(API_BASE_NAME, default=DEFAULT_API_BASE)),
+        ),
+        _api_name=(str, PrivateAttr(default=API_NAME)),
+        __base__=ChatCustomOpenAILikeModel,
+    )

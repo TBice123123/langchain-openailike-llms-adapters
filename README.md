@@ -1,5 +1,20 @@
-# LangChain-OpenAILike-adapters Introduction
-[中文文档](README_cn.md)
+<h1 align="center"> 🦜️🔗 LangChain-OpenAILike-adapters </h1>
+<p align="center">
+    <em>A utils to connect to all models compatible with the OpenAI style</em>
+</p>
+
+
+<span style="color:#4CAF50; font-weight:bold; margin-right: 8px;">[中文文档](README_cn.md)</span>
+
+<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
+  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">pypi package</span>
+  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">v0.1.1</span>
+  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">python</span>
+  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">3.11 | 3.12 | 3.13</span>
+</div>
+
+
+
 
 ## Motivation
 
@@ -15,6 +30,8 @@ deepseek_model.invoke("Hello")
 ```
 
 > ⚠️ Note: Please ensure that the API key (e.g., `DEEPSEEK_API_KEY`) is properly configured before use.
+
+>  If you want to integrate OpenAI's GPT model, we recommend using the langchain-openai package directly.
 
 ## Installation
 
@@ -44,14 +61,15 @@ Currently, the following model providers are supported:
 
 If you do not specify a provider, the tool will automatically determine the provider based on the provided model
 
-| Model Keyword | Provider       |
-|---------------|----------------|
-| deepseek      | DeepSeek       |
-| qwen          | DashScope      |
-| hunyuan       | TencentCloud   |
-| kimi          | MoonShot       |
-| glm           | Zhipu-AI       |
-| minimax       | MiniMax        |
+| Model Keyword | Provider       | Required API_KEY       |
+|---------------|----------------|------------------------|
+| deepseek      | DeepSeek       | DEEPSEEK_API_KEY       |
+| qwen          | DashScope      | DASHSCOPE_API_KEY      |
+| hunyuan       | TencentCloud   | TENCENT_API_KEY        |
+| kimi          | MoonShot       | MOONSHOT_API_KEY       |
+| glm           | Zhipu-AI       | ZHIPU_API_KEY          |
+| minimax       | MiniMax        | MINIMAX_API_KEY        |
+
 
 ### Special Parameter Descriptions
 
@@ -80,3 +98,6 @@ print(model.invoke("Hello"))
 
 For locally deployed open-source models, you can also integrate them using the above custom method or by replacing the URL based on existing providers.
 ```
+
+
+

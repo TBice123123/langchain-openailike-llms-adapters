@@ -1,7 +1,18 @@
-# LangChain-OpenAILike-adapters 介绍文档
+<h1 align="center"> 🦜️🔗 LangChain-OpenAILike-adapters </h1>
+<p align="center">
+    <em>一个库接入所有兼容OpenAI风格的模型</em>
+</p>
+
+<div style="display: flex; align-items: center;">
+  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px;">pypi package</span>
+  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: -4px;">v0.1.1</span>
+  <span style="background-color: #343a40; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px;">python</span>
+  <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: -4px;">3.11 | 3.12 | 3.13</span>
+</div>
 
 ## 编写动机
 随着 OpenAI 风格 API 成为行业标准，越来越多的大模型厂商提供了兼容的接口。然而，当前的接入方式存在分散且低效的问题。例如接入 DeepSeek 需要安装 `langchain-deepseek`，而接入 Qwen3 则需要依赖 `langchain-qwq`，这种为每个模型单独引入依赖包的方式不仅增加了开发复杂度，也降低了灵活性。更极端的例子是 Kimi-K2 等模型，甚至没有对应的封装包，只能通过 `langchain-openai` 接入。
+
 
 为了解决上述问题，我们开发了本工具库，提供统一的接口函数 [get_openai_like_llm_instance]，只需一个依赖包即可接入所有兼容 OpenAI 风格的模型 API。通过本工具，你可以轻松接入各类模型，例如：
 
@@ -13,6 +24,9 @@ deepseek_model.invoke("你好")
 ```
 
 > ⚠️ 注意：使用前请确保已正确设置 API Key，如 `DEEPSEEK_API_KEY`。
+
+> ⚠️ 注意：如果接入OpenAI的GPT模型，推荐直接使用`langchain-openai`
+
 
 ## 下载方式
 
@@ -41,15 +55,15 @@ get_openai_like_llm_instance 函数中，model参数为必填项，provider参�
 - MiniMax
 
 如果你未指定 provider，工具将根据传入的 model自动判断提供商：
+| 模型关键字 | 提供商         | 需要设置的API_KEY |
+|------------|----------------|-------------------|
+| deepseek   | DeepSeek       | DEEPSEEK_API_KEY  |
+| qwen       | DashScope      | DASHSCOPE_API_KEY |
+| hunyuan    | TencentCloud   | TENCENT_API_KEY   |
+| kimi       | MoonShot       | MOONSHOT_API_KEY  |
+| glm        | Zhipu-AI       | ZHIPU_API_KEY     |
+| minimax    | MiniMax        | MINIMAX_API_KEY   |
 
-| 模型关键字 | 提供商         |
-|------------|----------------|
-| deepseek   | DeepSeek       |
-| qwen       | DashScope      |
-| hunyuan    | TencentCloud   |
-| kimi       | MoonShot       |
-| glm        | Zhipu-AI       |
-| minimax    | MiniMax        |
 
 ### 特殊参数说明
 

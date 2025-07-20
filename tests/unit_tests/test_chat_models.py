@@ -10,16 +10,14 @@ from langchain_openailike_llms_adapters.adapters import get_openai_like_llm_inst
 
 
 TEST_PYDANTIC_MODELS = [generate_schema_pydantic()]
+model = get_openai_like_llm_instance("qwen3-32b")
 
 
 def test_init() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b")
     assert model is not None
 
 
 def test_bind_tool_pydantic() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b")
-
     @tool
     def my_adder(a: int, b: int) -> int:
         """Add a and b to result"""
@@ -47,8 +45,6 @@ def test_bind_tool_pydantic() -> None:
 
 
 def test_with_structured_output() -> None:
-    model = get_openai_like_llm_instance("qwen3-32b")
-
     class Schema(BaseModel):
         """A simple schema."""
 

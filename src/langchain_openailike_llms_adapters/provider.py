@@ -1,44 +1,54 @@
+from typing import Literal
+
+
 providers = {
     "dashscope": {
-        "api_key": "DASHSCOPE_API_KEY",
-        "api_base": "DASHSCOPE_API_BASE",
+        "api_id": "dashscope",
         "default_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "chat_model": "ChatDashScopeModel",
     },
-    "deepseek-ai": {
-        "api_key": "DEEPSEEK_API_KEY",
-        "api_base": "DEEPSEEK_API_BASE",
-        "default_url": "https://api.deepseek.com/v1",
-        "chat_model": "ChatDeepSeekAIModel",
-    },
+    "deepseek-ai": {"api_id": "deepseek", "default_url": "https://api.deepseek.com/v1"},
     "tencent-cloud": {
-        "api_key": "TENCENT_API_KEY",
-        "api_base": "TENCENT_API_BASE",
+        "api_id": "tencent",
         "default_url": "https://api.hunyuan.cloud.tencent.com/v1",
-        "chat_model": "ChatTencentCloudModel",
     },
     "moonshot-ai": {
-        "api_key": "MOONSHOT_API_KEY",
-        "api_base": "MOONSHOT_API_BASE",
+        "api_id": "moonshot",
         "default_url": "https://api.moonshot.cn/v1",
-        "chat_model": "ChatMoonshotAIModel",
     },
     "zhipu-ai": {
-        "api_key": "ZHIPU_API_KEY",
-        "api_base": "ZHIPUAI_API_BASE",
+        "api_id": "zhipu",
         "default_url": "https://open.bigmodel.cn/api/paas/v4/",
-        "chat_model": "ChatZhipuAIModel",
     },
     "minimax": {
-        "api_key": "MINIMAX_API_KEY",
-        "api_base": "MINIMAX_API_BASE",
+        "api_id": "minimax",
         "default_url": "https://api.minimaxi.com/v1",
-        "chat_model": "ChatMinimaxModel",
-    },
-    "custom": {
-        "api_key": "CUSTOM_API_KEY",
-        "api_base": "CUSTOM_API_BASE",
-        "default_url": "",
-        "chat_model": "ChatCustomModel",
     },
 }
+
+
+provider_list = Literal[
+    "deepseek-ai",
+    "dashscope",
+    "tencent-cloud",
+    "moonshot-ai",
+    "zhipu-ai",
+    "minimax",
+    "custom",
+]
+
+
+def _get_provider_with_model(model: str) -> provider_list:
+    if "deepseek" in model.lower():
+        return "deepseek-ai"
+    elif "qwen" in model.lower():
+        return "dashscope"
+    elif "hunyuan" in model.lower():
+        return "tencent-cloud"
+    elif "kimi" in model.lower():
+        return "moonshot-ai"
+    elif "glm" in model.lower():
+        return "zhipu-ai"
+    elif "minimax" in model.lower():
+        return "minimax"
+    else:
+        return "custom"
