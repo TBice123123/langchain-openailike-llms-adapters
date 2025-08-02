@@ -126,6 +126,17 @@ print(model.invoke(
 ))
 ```
 
+
+
+### Embedding Models
+This library also supports OpenAI-style compatible embedding models. Currently supported providers include `dashscope`, `zhipu-ai`, `ollama`, and `vllm`.
+Example code is as follows:
+```python
+from langchain_openailike_llms_adapters import get_openai_like_embedding
+emb = get_openai_like_embedding("bge-m3:latest", provider="ollama")
+print(emb.embed_query("hello world"))
+```
+
 ### Custom Providers
 
 For model providers not yet supported, you can use the `provider="custom"` parameter and manually set `CUSTOM_API_BASE` and `CUSTOM_API_KEY`.

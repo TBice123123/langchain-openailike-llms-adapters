@@ -116,6 +116,16 @@ print(model.invoke(
 )
 ```
 
+### 向量化模型
+本库也提高了兼容OpenAI风格的向量化模型接入，目前支持的提供商有`dashscope`、`zhipu-ai`、`ollama`、`vllm`。
+示例代码如下：
+```python
+from langchain_openailike_llms_adapters import get_openai_like_embedding
+emb = get_openai_like_embedding("bge-m3:latest",provider="ollama")
+print(emb.embed_query("hello world"))
+```
+
+
 ### 自定义提供商
 
 对于尚未支持的模型提供商，你可以使用 `provider="custom"` 参数，并手动设置 `CUSTOM_API_BASE` 和 `CUSTOM_API_KEY`。

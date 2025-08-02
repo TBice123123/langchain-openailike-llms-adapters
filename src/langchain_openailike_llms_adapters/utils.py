@@ -40,13 +40,12 @@ from pydantic import (
 )
 
 from langchain_openailike_llms_adapters.provider import providers
-
+from langchain_openai import OpenAIEmbeddings
 from .provider import _get_provider_with_model
 
 _BM = TypeVar("_BM", bound=BaseModel)
 _DictOrPydanticClass = Union[dict[str, Any], type[_BM], type]
 _DictOrPydantic = Union[dict, _BM]
-
 
 
 enable_streaming_model = [
@@ -57,7 +56,7 @@ enable_streaming_model = [
     "qwen3-8b",
     "qwen3-4b",
     "qwen3-1.7b",
-    "qwen3-0.6b"
+    "qwen3-0.6b",
 ]
 
 
@@ -91,6 +90,7 @@ support_tool_choice_models = [
     "qwen2.5-1.5b-instruct",
     "qwen2.5-0.5b-instruct",
 ]
+
 
 def _check_support_tool_choice(model: str) -> bool:
     if model in support_tool_choice_models:
@@ -131,7 +131,10 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
         provider = _get_provider_with_model(model)
 
         if provider == "dashscope" and (
-            (model in enable_streaming_model and values.get("enable_thinking") is not False)
+            (
+                model in enable_streaming_model
+                and values.get("enable_thinking") is not False
+            )
             or model.startswith("qwq")
             or model.startswith("qvq")
             or values.get("enable_thinking")
@@ -151,13 +154,12 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
         key_name = f"{self._api_name.upper()}_API_KEY"
 
         if not (self.api_key and self.api_key.get_secret_value()):
-            if self._api_name=="vllm" or self._api_name=="ollama":
-                self.api_key=SecretStr("sk-"+self._api_name)
+            if self._api_name == "vllm" or self._api_name == "ollama":
+                self.api_key = SecretStr("sk-" + self._api_name)
             else:
                 raise ValueError(
                     f"If you api_key is not set,  {key_name} environment variable is required",  # noqa: E501
                 )
-
 
         client_params: dict = {
             k: v
@@ -385,7 +387,6 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
             if tool_choice and "qwen" in self.model_name:
                 self.enable_thinking = False
 
-
             if tool_choice:
                 bind_kwargs = self._filter_disabled_params(
                     parallel_tool_calls=False,
@@ -435,6 +436,60 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
         return chain
 
 
+class OpenAILikeEmbedding(OpenAIEmbeddings):
+    check_embedding_ctx_length: bool = False
+    _api_name: str = PrivateAttr(default="CUSTOM")
+    
+    
+    @model_validator(mode="after")
+    def validate_environment(self) -> Self:
+        """Validate that api key and python package exists in environment."""
+        if not self.openai_api_key and self._api_name=="ollama" or self._api_name=="vllm":
+            self.openai_api_key=SecretStr("sk"+self._api_name)
+        
+        client_params: dict = {
+            "api_key": (
+                self.openai_api_key.get_secret_value() if self.openai_api_key else None
+            ),
+            "organization": self.openai_organization,
+            "base_url": self.openai_api_base,
+            "timeout": self.request_timeout,
+            "max_retries": self.max_retries,
+            "default_headers": self.default_headers,
+            "default_query": self.default_query,
+        }
+        
+
+        if not self.client:
+            if self.openai_proxy and not self.http_client:
+                try:
+                    import httpx
+                except ImportError as e:
+                    raise ImportError(
+                        "Could not import httpx python package. "
+                        "Please install it with `pip install httpx`."
+                    ) from e
+                self.http_client = httpx.Client(proxy=self.openai_proxy)
+            sync_specific = {"http_client": self.http_client}
+            self.client = openai.OpenAI(**client_params, **sync_specific).embeddings  # type: ignore[arg-type]
+        if not self.async_client:
+            if self.openai_proxy and not self.http_async_client:
+                try:
+                    import httpx
+                except ImportError as e:
+                    raise ImportError(
+                        "Could not import httpx python package. "
+                        "Please install it with `pip install httpx`."
+                    ) from e
+                self.http_async_client = httpx.AsyncClient(proxy=self.openai_proxy)
+            async_specific = {"http_client": self.http_async_client}
+            self.async_client = openai.AsyncOpenAI(
+                **client_params, # type: ignore[arg-type]
+                **async_specific,  # type: ignore[arg-type]
+            ).embeddings
+        return self
+
+
 class ChatModelExtraParams(TypedDict, total=False):
     temperature: float
     top_p: float
@@ -449,8 +504,9 @@ class ChatModelExtraParams(TypedDict, total=False):
     thinking_budget: int
     model_kwargs: dict[str, Any]
     disabled_params: dict[str, Any]
-    api_key:SecretStr
-    api_base: str 
+    api_key: SecretStr
+    api_base: str
+
 
 @cache
 def _create_openai_like_chat_model(provider: str) -> Type[ChatCustomOpenAILikeModel]:
@@ -478,4 +534,33 @@ def _create_openai_like_chat_model(provider: str) -> Type[ChatCustomOpenAILikeMo
         ),
         _api_name=(str, PrivateAttr(default=API_NAME)),
         __base__=ChatCustomOpenAILikeModel,
+    )
+
+
+@cache
+def _create_openai_like_embbeding(provider: str) -> Type[OpenAILikeEmbedding]:
+    if provider == "custom":
+        return OpenAILikeEmbedding
+
+    API_NAME = providers[provider]["api_id"]
+
+    API_KEY_NAME = f"{API_NAME.upper()}_API_KEY"
+    API_BASE_NAME = f"{API_NAME.upper()}_API_BASE"
+
+    DEFAULT_API_BASE = providers[provider]["default_url"]
+
+    chat_model_name = f"{API_NAME.title()}Embedding"
+
+    return create_model(
+        chat_model_name,
+        openai_api_key=(
+            Optional[SecretStr],
+            Field(default_factory=secret_from_env(API_KEY_NAME, default=None)),
+        ),
+        openai_api_base=(
+            str,
+            Field(default_factory=from_env(API_BASE_NAME, default=DEFAULT_API_BASE)),
+        ),
+        _api_name=(str, PrivateAttr(default=API_NAME)),
+        __base__=OpenAILikeEmbedding,
     )

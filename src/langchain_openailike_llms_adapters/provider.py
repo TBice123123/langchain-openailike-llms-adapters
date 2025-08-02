@@ -62,3 +62,13 @@ def _get_provider_with_model(model: str) -> provider_list:
         return "minimax"
     else:
         return "custom"
+
+
+
+provider_emb_list=Literal[
+    "dashscope",
+    "zhipu-ai",
+    "ollama",
+    "vllm",
+    "custom"
+]
