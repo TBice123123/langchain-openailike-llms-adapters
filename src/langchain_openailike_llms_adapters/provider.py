@@ -23,6 +23,14 @@ providers = {
         "api_id": "minimax",
         "default_url": "https://api.minimaxi.com/v1",
     },
+    "vllm": {
+        "api_id": "vllm",
+        "default_url": "http://localhost:8080/v1",
+    },
+    "ollama": {
+        "api_id": "ollama",
+        "default_url": "http://localhost:11434/v1",
+    },
 }
 
 
@@ -33,6 +41,8 @@ provider_list = Literal[
     "moonshot-ai",
     "zhipu-ai",
     "minimax",
+    "vllm",
+    "ollama",
     "custom",
 ]
 

@@ -51,6 +51,8 @@ Currently, the following model providers are supported:
 - MoonShot-AI
 - Zhipu-AI
 - MiniMax
+- VLLM
+- Ollama
 
 If you do not specify a provider, the tool will automatically determine the provider based on the provided model
 
@@ -64,14 +66,67 @@ If you do not specify a provider, the tool will automatically determine the prov
 | minimax       | MiniMax        | MINIMAX_API_KEY        |
 
 
-### Special Parameter Descriptions
 
-- `enable_thinking`: Applicable only to the Qwen3 series and HunYuan-A13B models.
-- `thinking_budget`: Applicable only to the Qwen3 series models.
 
-Other model parameters (such as `temperature`, `top_k`, etc.) can be passed via keyword arguments.
+ **Note:**
+>(1) For VLLM and Ollama, you must pass `provider="vllm"` or `provider="ollama"`.
 
-## Custom Providers
+example:
+```python
+from langchain_openailike_llms_adapters import get_openai_like_llm_instance
+
+model=get_openai_like_llm_instance(
+    model="qwen3:8b",
+    provider="ollama"
+)
+print(model.invoke("hello"))
+```
+
+>(2) Other model parameters (such as `temperature`, `top_k`, etc.) can be passed via model_kwargs arguments.
+
+example:
+```python
+from langchain_openailike_llms_adapters import get_openai_like_llm_instance
+
+model=get_openai_like_llm_instance(
+    model="qwen3-32b",
+    model_kwargs={
+      "thinking_budget":10
+    }
+)
+print(model.invoke("hello"))
+```
+
+
+### Vision Models
+It also supports connecting to OpenAI-compatible vision multimodal models, for example:
+
+```python
+from langchain_core.messages import HumanMessage
+from langchain_openailike_llms_adapters import get_openai_like_llm_instance
+
+model = get_openai_like_llm_instance(
+    model="qwen2.5-vl-32b-instruct"
+)
+print(model.invoke(
+    input=[
+        HumanMessage(
+            content=[
+                {
+                    "type": "image_url",
+                    "image_url": "https://example.com/image.png"
+                },
+                {
+                    "type": "text",
+                    "text": "What is in the image?"
+                }
+            ]
+        )
+    ]
+))
+```
+
+### Custom Providers
 
 For model providers not yet supported, you can use the `provider="custom"` parameter and manually set `CUSTOM_API_BASE` and `CUSTOM_API_KEY`.
 

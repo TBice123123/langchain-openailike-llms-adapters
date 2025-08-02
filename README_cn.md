@@ -47,6 +47,8 @@ get_openai_like_llm_instance 函数中，model参数为必填项，provider参�
 - MoonShot-AI
 - Zhipu-AI
 - MiniMax
+- VLLM
+- Ollama
 
 如果你未指定 provider，工具将根据传入的 model自动判断提供商：
 | 模型关键字 | 提供商         | 需要设置的API_KEY |
@@ -58,15 +60,63 @@ get_openai_like_llm_instance 函数中，model参数为必填项，provider参�
 | glm        | Zhipu-AI       | ZHIPU_API_KEY     |
 | minimax    | MiniMax        | MINIMAX_API_KEY   |
 
+**注意：**
+> (1) 对于VLLM和Ollama，请必须传入provider="vllm"或"ollama"
+例如
+```python
+from langchain_openailike_llms_adapters import get_openai_like_llm_instance
 
-### 特殊参数说明
+model=get_openai_like_llm_instance(
+    model="qwen3:8b",
+    provider="ollama"
+)
+print(model.invoke("你好"))
+```
 
-- `enable_thinking`：仅适用于 Qwen3 系列和 HunYuan-A13B 模型。
-- `thinking_budget`：仅适用于 Qwen3 系列模型。
+> (2) 对于其他模型参数（如 `temperature`、`top_k` 等），可通过model_kwargs传入。
+例如
+```python
+from langchain_openailike_llms_adapters import get_openai_like_llm_instance
 
-对于其他模型参数（如 `temperature`、`top_k` 等），可通过关键字参数传入。
+model=get_openai_like_llm_instance(
+    model="qwen3-32b",
+    model_kwargs={
+      "thinking_budget":10
+    }
+)
+print(model.invoke("你好"))
+```
 
-## 自定义提供商
+### 视觉模型
+同时也支持接入openai兼容的视觉多模态模型，例如
+
+```python
+from langchain_core.messages import HumanMessage
+from langchain_openailike_llms_adapters import get_openai_like_llm_instance
+
+model=get_openai_like_llm_instance(
+    model="qwen2.5-vl-32b-instruct"
+)
+print(model.invoke(
+    input=[
+        HumanMessage(
+            content=[
+                {
+                    "type":"image_url",
+                    "image_url":"https://example.com/image.png"
+                },
+                {
+                    "type":"text",
+                    "text":"图中有什么？"
+                }
+            ]
+        )
+    ]
+)
+)
+```
+
+### 自定义提供商
 
 对于尚未支持的模型提供商，你可以使用 `provider="custom"` 参数，并手动设置 `CUSTOM_API_BASE` 和 `CUSTOM_API_KEY`。
 

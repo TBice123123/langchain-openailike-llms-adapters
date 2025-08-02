@@ -20,7 +20,7 @@ from langchain_openailike_llms_adapters.adapters import (
     get_openai_like_llm_instance,
 )
 
-model = get_openai_like_llm_instance(model="qwen3-32b", enable_thinking=False)
+model = get_openai_like_llm_instance(model="qwen3-30b-a3b-instruct-2507")
 
 
 def test_invoke() -> None:

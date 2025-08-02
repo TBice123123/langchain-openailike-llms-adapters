@@ -1,3 +1,4 @@
+from functools import cache
 from json import JSONDecodeError
 from operator import itemgetter
 from typing import (
@@ -10,6 +11,7 @@ from typing import (
     Optional,
     Self,
     Type,
+    TypedDict,
     TypeVar,
     Union,
 )
@@ -33,13 +35,12 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
-    model_validator,
     create_model,
+    model_validator,
 )
 
 from langchain_openailike_llms_adapters.provider import providers
 
-from .tool_choice_list import support_models
 from .provider import _get_provider_with_model
 
 _BM = TypeVar("_BM", bound=BaseModel)
@@ -47,8 +48,52 @@ _DictOrPydanticClass = Union[dict[str, Any], type[_BM], type]
 _DictOrPydantic = Union[dict, _BM]
 
 
-def _check_support_tool_choice(model: str):
-    if model in support_models:
+
+enable_streaming_model = [
+    "qwen3-235b-a22b",
+    "qwen3-32b",
+    "qwen3-30b-a3b",
+    "qwen3-14b",
+    "qwen3-8b",
+    "qwen3-4b",
+    "qwen3-1.7b",
+    "qwen3-0.6b"
+]
+
+
+support_tool_choice_models = [
+    "qwen3-235b-a22b-instruct-2507",
+    "qwen3-30b-a3b-instruct-2507",
+    "qwen3-coder-480b-a35b-instruct",
+    "qwen3-coder-plus",
+    "qwen3-coder-30b-a3b-instruct",
+    "qwen-max",
+    "qwen-max-latest",
+    "qwen-plus",
+    "qwen-plus-latest",
+    "qwen-turbo",
+    "qwen-turbo-latest",
+    "qwen3-235b-a22b",
+    "qwen3-32b",
+    "qwen3-30b-a3b",
+    "qwen3-14b",
+    "qwen3-8b",
+    "qwen3-4b",
+    "qwen3-1.7b",
+    "qwen3-0.6b",
+    "qwen2.5-14b-instruct-1m",
+    "qwen2.5-7b-instruct-1m",
+    "qwen2.5-72b-instruct",
+    "qwen2.5-32b-instruct",
+    "qwen2.5-14b-instruct",
+    "qwen2.5-7b-instruct",
+    "qwen2.5-3b-instruct",
+    "qwen2.5-1.5b-instruct",
+    "qwen2.5-0.5b-instruct",
+]
+
+def _check_support_tool_choice(model: str) -> bool:
+    if model in support_tool_choice_models:
         return True
     return False
 
@@ -86,7 +131,7 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
         provider = _get_provider_with_model(model)
 
         if provider == "dashscope" and (
-            (model.startswith("qwen3") and values.get("enable_thinking", True))
+            (model in enable_streaming_model and values.get("enable_thinking") is not False)
             or model.startswith("qwq")
             or model.startswith("qvq")
             or values.get("enable_thinking")
@@ -106,9 +151,13 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
         key_name = f"{self._api_name.upper()}_API_KEY"
 
         if not (self.api_key and self.api_key.get_secret_value()):
-            raise ValueError(
-                f"If you api_key is not set,  {key_name} environment variable is required",  # noqa: E501
-            )
+            if self._api_name=="vllm" or self._api_name=="ollama":
+                self.api_key=SecretStr("sk-"+self._api_name)
+            else:
+                raise ValueError(
+                    f"If you api_key is not set,  {key_name} environment variable is required",  # noqa: E501
+                )
+
 
         client_params: dict = {
             k: v
@@ -336,6 +385,7 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
             if tool_choice and "qwen" in self.model_name:
                 self.enable_thinking = False
 
+
             if tool_choice:
                 bind_kwargs = self._filter_disabled_params(
                     parallel_tool_calls=False,
@@ -385,7 +435,25 @@ class ChatCustomOpenAILikeModel(BaseChatOpenAI):
         return chain
 
 
-def _get_openai_like_chat_model(provider: str) -> Type[ChatCustomOpenAILikeModel]:
+class ChatModelExtraParams(TypedDict, total=False):
+    temperature: float
+    top_p: float
+    presence_penalty: float
+    frequency_penalty: float
+    max_tokens: int
+    n: int
+    max_retries: int
+    logprobs: bool
+    top_logprobs: int
+    enable_thinking: bool
+    thinking_budget: int
+    model_kwargs: dict[str, Any]
+    disabled_params: dict[str, Any]
+    api_key:SecretStr
+    api_base: str 
+
+@cache
+def _create_openai_like_chat_model(provider: str) -> Type[ChatCustomOpenAILikeModel]:
     if provider == "custom":
         return ChatCustomOpenAILikeModel
 
