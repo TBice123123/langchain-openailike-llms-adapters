@@ -55,18 +55,26 @@ def get_openai_like_embedding(
     model: str,
     provider: provider_emb_list,
     dimensions: Optional[int] = None,
-    embedding_ctx_length: Optional[int] = None,
     chunk_size: Optional[int] = None,
     max_retries: Optional[int] = None,
     model_kwargs: Optional[dict[str, Any]] = None,
 ) -> OpenAILikeEmbedding:
+    """Get an instance of an embedding model that is compatible with the OpenAI API.
+    Args:
+        model: The model to use.
+        provider: The provider to use.
+        dimensions: The dimensions of the embedding.
+        chunk_size: The size of the chunk to use when embedding.
+        max_retries: The maximum number of retries to use when embedding.
+        model_kwargs: Extra params to pass to the model.
+    Returns:
+        An instance of an embedding model that is compatible with the OpenAI API.
+    """
     model_kwargs = model_kwargs or {}
     if max_retries:
         model_kwargs["max_retries"] = max_retries
     if dimensions:
         model_kwargs["dimensions"] = dimensions
-    if embedding_ctx_length:
-        model_kwargs["embedding_ctx_length"] = embedding_ctx_length
     if chunk_size:
         model_kwargs["chunk_size"] = chunk_size
     embbeding_model = _create_openai_like_embbeding(provider)
