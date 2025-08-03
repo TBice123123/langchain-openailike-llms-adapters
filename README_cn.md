@@ -145,3 +145,8 @@ print(model.invoke("你好"))
 > ✅ 请将 `CUSTOM_API_BASE` 设置为硅基流动的 API 地址：`https://api.siliconflow.cn/v1`。
 
 对于本地部署的开源模型，也可以通过上述自定义方式接入，或基于已有提供商进行 URL 替换实现接入。
+
+
+## 贡献你的模型集成
+如果你的模型提供商也提供了兼容 OpenAI API 风格的接口，欢迎通过 Pull Request (PR) 的方式贡献你的集成实现，帮助更多开发者轻松接入。
+

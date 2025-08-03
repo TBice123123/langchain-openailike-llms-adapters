@@ -159,3 +159,5 @@ For locally deployed open-source models, you can also integrate them using the a
 
 
 
+## Contribute Your Model Integration
+If your model provider also offers an OpenAI API-compatible interface, you are welcome to contribute your integration implementation via a Pull Request (PR), helping more developers easily connect to it.
